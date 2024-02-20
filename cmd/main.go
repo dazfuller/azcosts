@@ -29,7 +29,10 @@ func main() {
 
 	flag.Usage = func() {
 		fmt.Println("Azure costs summary")
-		fmt.Println("Collects cost data from Microsoft Azure and summarises the output")
+		fmt.Println("Collects cost data from Microsoft Azure and summarises the output. The app makes use of")
+		fmt.Println("the DefaultAzureCredential (https://learn.microsoft.com/dotnet/api/azure.identity.defaultazurecredential)")
+		fmt.Println("type, and so running locally will use the Azure CLI tool for authentication if available.")
+		fmt.Println("The user must have billing reader permissions on the subscription.")
 		fmt.Println()
 		fmt.Println("Usage:")
 		flag.PrintDefaults()
@@ -47,6 +50,12 @@ func main() {
 	formatLower := strings.ToLower(format)
 	if formatLower != "text" && formatLower != "csv" && formatLower != "json" {
 		fmt.Print("a valid format must be specified\n\n")
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if !useStdOut && len(outputPath) == 0 {
+		fmt.Print("when not writing to stdout an output path must be specified\n\n")
 		flag.Usage()
 		os.Exit(1)
 	}
