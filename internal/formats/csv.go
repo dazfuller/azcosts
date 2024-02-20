@@ -2,7 +2,6 @@ package formats
 
 import (
 	"encoding/csv"
-	"errors"
 	"fmt"
 	"github.com/dazfuller/azcosts/internal/model"
 	"os"
@@ -14,18 +13,8 @@ type CsvFormatter struct {
 }
 
 func MakeCsvFormatter(useStdOut bool, outputPath string) (CsvFormatter, error) {
-	if !useStdOut && len(outputPath) == 0 {
-		return CsvFormatter{}, fmt.Errorf("when writing to file and file path must be specified")
-	}
-
-	if !useStdOut {
-		_, err := os.Stat(outputPath)
-		if !errors.Is(err, os.ErrNotExist) {
-			err := os.Remove(outputPath)
-			if err != nil {
-				return CsvFormatter{}, err
-			}
-		}
+	if err := validateOptions(useStdOut, outputPath); err != nil {
+		return CsvFormatter{}, err
 	}
 
 	return CsvFormatter{useStdOut: useStdOut, outputPath: outputPath}, nil

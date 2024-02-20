@@ -2,8 +2,6 @@ package formats
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"github.com/dazfuller/azcosts/internal/model"
 	"os"
 	"time"
@@ -22,18 +20,8 @@ type JsonFormatter struct {
 }
 
 func MakeJsonFormatter(useStdOut bool, outputPath string) (JsonFormatter, error) {
-	if !useStdOut && len(outputPath) == 0 {
-		return JsonFormatter{}, fmt.Errorf("when writing to file and file path must be specified")
-	}
-
-	if !useStdOut {
-		_, err := os.Stat(outputPath)
-		if !errors.Is(err, os.ErrNotExist) {
-			err := os.Remove(outputPath)
-			if err != nil {
-				return JsonFormatter{}, err
-			}
-		}
+	if err := validateOptions(useStdOut, outputPath); err != nil {
+		return JsonFormatter{}, err
 	}
 
 	return JsonFormatter{useStdOut: useStdOut, outputPath: outputPath}, nil

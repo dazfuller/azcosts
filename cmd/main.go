@@ -21,7 +21,7 @@ func main() {
 	summary, err := db.GenerateSummaryByResourceGroup()
 	panicIfError(err)
 
-	formatter, err := formats.MakeCsvFormatter(false, "./costs.csv")
+	formatter, err := formats.MakeTextFormatter(false, "./costs.txt")
 	panicIfError(err)
 	err = formatter.Generate(summary)
 	panicIfError(err)
