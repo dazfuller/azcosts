@@ -21,7 +21,8 @@ func main() {
 	summary, err := db.GenerateSummaryByResourceGroup()
 	panicIfError(err)
 
-	formatter := formats.MakeConsoleFormatter()
+	formatter, err := formats.MakeJsonFormatter(true, "./costs.json")
+	panicIfError(err)
 	err = formatter.Generate(summary)
 	panicIfError(err)
 }

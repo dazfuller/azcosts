@@ -1,13 +1,13 @@
 package model
 
 type BillingPeriodCost struct {
-	Period string
-	Total  float64
+	Period string  `json:"period"`
+	Total  float64 `json:"total"`
 }
 
 type ResourceGroupSummary struct {
-	Name             string
-	SubscriptionName string
-	Costs            []BillingPeriodCost
-	TotalCost        float64
+	Name             string              `json:"name"`
+	SubscriptionName string              `json:"subscriptionName"`
+	Costs            []BillingPeriodCost `json:"costs"`
+	TotalCost        float64             `json:"totalCost"`
 }
