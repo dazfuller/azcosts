@@ -40,13 +40,15 @@ func initializeDatabase(db *sql.DB) error {
 }
 
 // NewCostManagementStore creates a new instance of CostManagementStore and initializes the SQLite database.
-func NewCostManagementStore(dbPath string) (*CostManagementStore, error) {
-	// Check if the db path already exists
-	_, err := os.Stat(dbPath)
-	if !errors.Is(err, os.ErrNotExist) {
-		err := os.Remove(dbPath)
-		if err != nil {
-			return nil, err
+func NewCostManagementStore(dbPath string, truncate bool) (*CostManagementStore, error) {
+	if truncate {
+		// Check if the db path already exists
+		_, err := os.Stat(dbPath)
+		if !errors.Is(err, os.ErrNotExist) {
+			err := os.Remove(dbPath)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -118,7 +120,7 @@ func (cm *CostManagementStore) SaveCosts(costs []model.ResourceGroupCost) error 
 }
 
 func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.ResourceGroupSummary, error) {
-	billingPeriods, err := cm.GetBillingPeriods()
+	billingPeriods, err := cm.GetAllBillingPeriods()
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +171,7 @@ func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.Resourc
 	return summary, nil
 }
 
-func (cm *CostManagementStore) GetBillingPeriods() ([]string, error) {
+func (cm *CostManagementStore) GetAllBillingPeriods() ([]string, error) {
 	rows, err := cm.db.Query("SELECT DISTINCT billing_period FROM costs ORDER BY billing_period")
 	if err != nil {
 		return nil, err
@@ -187,6 +189,34 @@ func (cm *CostManagementStore) GetBillingPeriods() ([]string, error) {
 	}
 
 	return billingPeriods, nil
+}
+
+func (cm *CostManagementStore) GetSubscriptionBillingPeriods(subscriptionId string) ([]string, error) {
+	rows, err := cm.db.Query("SELECT DISTINCT billing_period FROM costs WHERE subscription_id = ? ORDER BY billing_period", subscriptionId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var billingPeriods []string
+	for rows.Next() {
+		var billingPeriod string
+		err := rows.Scan(&billingPeriod)
+		if err != nil {
+			return nil, err
+		}
+		billingPeriods = append(billingPeriods, billingPeriod)
+	}
+
+	return billingPeriods, nil
+}
+
+func (cm *CostManagementStore) DeleteSubscriptionBillingPeriod(subscriptionId string, billingPeriod string) error {
+	_, err := cm.db.Exec("DELETE FROM costs WHERE subscription_id = ? AND billing_period = ?", subscriptionId, billingPeriod)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func costToFloat(value interface{}) float64 {
