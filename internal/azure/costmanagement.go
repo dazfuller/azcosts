@@ -241,8 +241,6 @@ func makeRequest(req *http.Request, retryLimit int) (*http.Response, error) {
 			return nil, fmt.Errorf("invalid request. %s: %s", resp.Status, respContent)
 		}
 
-		// Rate limit retry info header item: X-Ms-Ratelimit-Microsoft.costmanagement-Entity-Retry-After
-
 		attempt++
 	}
 
