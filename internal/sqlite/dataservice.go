@@ -119,13 +119,11 @@ func (cm *CostManagementStore) SaveCosts(costs []model.ResourceGroupCost) error 
 	return nil
 }
 
-func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.ResourceGroupSummary, error) {
-	billingPeriods, err := cm.GetAllBillingPeriods()
-	if err != nil {
-		return nil, err
-	}
+func (cm *CostManagementStore) createSummaryView(billingPeriods []string) error {
 
 	queryBuilder := strings.Builder{}
+	queryBuilder.WriteString("DROP VIEW IF EXISTS vw_cost_summary;")
+	queryBuilder.WriteString("CREATE VIEW vw_cost_summary AS\n")
 	queryBuilder.WriteString("SELECT resource_group AS `ResourceGroup`, subscription_name AS `Subscription`\n")
 
 	for _, bp := range billingPeriods {
@@ -134,10 +132,23 @@ func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.Resourc
 
 	queryBuilder.WriteString(", SUM(cost) AS `TotalCost`\n")
 	queryBuilder.WriteString("FROM costs\n")
-	queryBuilder.WriteString("GROUP BY resource_group, subscription_name\n")
-	queryBuilder.WriteString("ORDER BY ResourceGroup\n")
+	queryBuilder.WriteString("GROUP BY resource_group, subscription_name;\n")
 
-	rows, err := cm.db.Query(queryBuilder.String())
+	_, err := cm.db.Exec(queryBuilder.String())
+	return err
+}
+
+func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.ResourceGroupSummary, error) {
+	billingPeriods, err := cm.GetAllBillingPeriods()
+	if err != nil {
+		return nil, err
+	}
+
+	err = cm.createSummaryView(billingPeriods)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := cm.db.Query("SELECT * FROM vw_cost_summary ORDER BY ResourceGroup")
 	if err != nil {
 		return nil, err
 	}
