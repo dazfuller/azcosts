@@ -172,6 +172,8 @@ func (svc *CostService) ResourceGroupCostsForPeriod(subscriptionId string, year 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("ClientType", "CostManagementAppV1")
 
+	log.Printf("Requesing billing information for subscription %s, billing period %s", subscriptionId, billingFrom.Format("2006-01"))
+
 	resp, err := makeRequest(req, 3)
 	if err != nil {
 		return nil, err
@@ -213,6 +215,9 @@ func makeRequest(req *http.Request, retryLimit int) (*http.Response, error) {
 	attempt := 1
 	for attempt <= retryLimit {
 		client := http.Client{}
+
+		log.Printf("Making request, attempt %d", attempt)
+
 		resp, err := client.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("unable to make request: %s", err.Error())
@@ -226,10 +231,10 @@ func makeRequest(req *http.Request, retryLimit int) (*http.Response, error) {
 				retryAfter = "40"
 			}
 			retryDuration, err := time.ParseDuration(fmt.Sprintf("%ss", retryAfter))
+			log.Printf("Request was throttled, retrying IN %s", retryDuration.String())
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse retry duration: %s", err.Error())
 			}
-			log.Printf("API request throttled, attempting again in %ss", retryAfter)
 			time.Sleep(retryDuration)
 		} else {
 			respContent, err := io.ReadAll(resp.Body)
