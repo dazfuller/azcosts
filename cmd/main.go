@@ -8,6 +8,7 @@ import (
 	"github.com/dazfuller/azcosts/internal/formats"
 	"github.com/dazfuller/azcosts/internal/sqlite"
 	"github.com/google/uuid"
+	"log"
 	"os"
 	"path"
 	"slices"
@@ -54,13 +55,22 @@ func main() {
 		displayErrorMessage("invalid subscription id, must be a valid guid")
 	}
 
+	allowedFormats := []string{
+		"text",
+		"csv",
+		"json",
+		"excel",
+	}
+
 	formatLower := strings.ToLower(format)
-	if formatLower != "text" && formatLower != "csv" && formatLower != "json" {
+	if !slices.Contains(allowedFormats, formatLower) {
 		displayErrorMessage("a valid format must be specified")
 	}
 
 	if !useStdOut && len(outputPath) == 0 {
 		displayErrorMessage("when not writing to stdout an output path must be specified")
+	} else if formatLower == "excel" && len(outputPath) == 0 {
+		displayErrorMessage("excel output cannot be written to stdout and so an output path must be specified")
 	}
 
 	if month > 12 {
@@ -77,7 +87,12 @@ func main() {
 
 	db, err := sqlite.NewCostManagementStore(dbPath, truncateDB)
 	panicIfError(err)
-	defer db.Close()
+	defer func(db *sqlite.CostManagementStore) {
+		err := db.Close()
+		if err != nil {
+			log.Printf("Unable to close data store")
+		}
+	}(db)
 
 	err = processSubscriptionBillingPeriods(db, billingDate)
 	panicIfError(err)
@@ -103,6 +118,9 @@ func generateBillingSummary(db *sqlite.CostManagementStore, format string) error
 		break
 	case "json":
 		formatter, err = formats.MakeJsonFormatter(useStdOut, outputPath)
+		break
+	case "excel":
+		formatter, err = formats.MakeExcelFormatter(outputPath)
 		break
 	}
 	if err != nil {
