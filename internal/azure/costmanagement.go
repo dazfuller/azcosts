@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/dazfuller/azcosts/internal/model"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -169,22 +170,13 @@ func (svc *CostService) ResourceGroupCostsForPeriod(subscriptionId string, year 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("ClientType", "CostManagementAppV1")
 
-	client := http.Client{}
-	resp, err := client.Do(req)
+	resp, err := makeRequest(req, 3)
 	if err != nil {
-		return nil, fmt.Errorf("unable to make request: %s", err.Error())
+		return nil, err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respContent, err := io.ReadAll(resp.Body)
-		if err != nil {
-			respContent = []byte("No response body")
-		}
-
-		return nil, fmt.Errorf("invalid request. %s: %s", resp.Status, respContent)
-	}
 
 	responseVal := costResponse{}
 	decoder := json.NewDecoder(resp.Body)
@@ -215,4 +207,44 @@ func (svc *CostService) ResourceGroupCostsForPeriod(subscriptionId string, year 
 	}
 
 	return costs, nil
+}
+
+func makeRequest(req *http.Request, retryLimit int) (*http.Response, error) {
+	attempt := 1
+	for attempt <= retryLimit {
+		client := http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("unable to make request: %s", err.Error())
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			return resp, nil
+		} else if resp.StatusCode == 429 {
+			retryAfter := resp.Header.Get("X-Ms-Ratelimit-Microsoft.costmanagement-Entity-Retry-After")
+			if len(retryAfter) == 0 {
+				retryAfter = "40"
+			}
+			retryDuration, err := time.ParseDuration(fmt.Sprintf("%ss", retryAfter))
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse retry duration: %s", err.Error())
+			}
+			log.Printf("API request throttled, attempting again in %ss", retryAfter)
+			time.Sleep(retryDuration)
+		} else {
+			respContent, err := io.ReadAll(resp.Body)
+			if err != nil {
+				respContent = []byte("No response body")
+			}
+			resp.Body.Close()
+
+			return nil, fmt.Errorf("invalid request. %s: %s", resp.Status, respContent)
+		}
+
+		// Rate limit retry info header item: X-Ms-Ratelimit-Microsoft.costmanagement-Entity-Retry-After
+
+		attempt++
+	}
+
+	return nil, fmt.Errorf("unable to successfully query cost management api after %d attempt(s)", retryLimit)
 }
