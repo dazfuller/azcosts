@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/dazfuller/azcosts/internal/azure"
@@ -8,6 +9,7 @@ import (
 	"github.com/dazfuller/azcosts/internal/sqlite"
 	"github.com/google/uuid"
 	"os"
+	"path"
 	"slices"
 	"strings"
 	"time"
@@ -70,7 +72,10 @@ func main() {
 		displayErrorMessage("invalid billing period, must be in the past")
 	}
 
-	db, err := sqlite.NewCostManagementStore("./azure_costs.db", truncateDB)
+	dbPath, err := getDatabasePath()
+	panicIfError(err)
+
+	db, err := sqlite.NewCostManagementStore(dbPath, truncateDB)
 	panicIfError(err)
 	defer db.Close()
 
@@ -158,6 +163,25 @@ func calculateBillingPeriods(billingDate time.Time) []string {
 		billingDate = billingDate.AddDate(0, 1, 0)
 	}
 	return billingPeriods
+}
+
+func getDatabasePath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	dbDir := path.Join(homeDir, ".azure-costs")
+
+	_, err = os.Stat(dbDir)
+	if errors.Is(err, os.ErrNotExist) {
+		err = os.Mkdir(dbDir, os.FileMode(0755))
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return path.Join(dbDir, "costs.db"), nil
 }
 
 func panicIfError(err error) {
