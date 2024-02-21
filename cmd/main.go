@@ -31,7 +31,7 @@ func main() {
 	flag.StringVar(&subscriptionId, "subscription", "", "The id of the subscription to collect costs for")
 	flag.IntVar(&year, "year", time.Now().Year(), "The year of the billing period")
 	flag.IntVar(&month, "month", int(time.Now().Month()), "The month of the billing period")
-	flag.StringVar(&format, "format", "text", "The output format to use. Allowed values are text, csv, json")
+	flag.StringVar(&format, "format", "text", "The output format to use. Allowed values are 'text', 'csv', 'json', and 'excel'")
 	flag.BoolVar(&useStdOut, "stdout", false, "If set writes the data to stdout")
 	flag.StringVar(&outputPath, "path", "", "The output path to write the summary data to when not writing to stdout")
 	flag.BoolVar(&truncateDB, "truncate", false, "If specified will truncate the existing data in the database")
