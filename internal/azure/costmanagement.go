@@ -231,7 +231,7 @@ func makeRequest(req *http.Request, retryLimit int) (*http.Response, error) {
 				retryAfter = "40"
 			}
 			retryDuration, err := time.ParseDuration(fmt.Sprintf("%ss", retryAfter))
-			log.Printf("Request was throttled, retrying IN %s", retryDuration.String())
+			log.Printf("Request was throttled, retrying in %s", retryDuration.String())
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse retry duration: %s", err.Error())
 			}
