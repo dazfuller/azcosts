@@ -66,6 +66,11 @@ func main() {
 		generateCmd.PrintDefaults()
 	}
 
+	if len(os.Args) < 2 || strings.Contains(strings.ToLower(os.Args[1]), "help") {
+		displayTopLevelUsage()
+		os.Exit(1)
+	}
+
 	var err error
 
 	switch strings.ToLower(os.Args[1]) {
@@ -87,6 +92,8 @@ func main() {
 		break
 	default:
 		fmt.Println("Unexpected command, expected 'collect' or 'generate'")
+		fmt.Println()
+		displayTopLevelUsage()
 		os.Exit(1)
 	}
 
@@ -198,6 +205,18 @@ func generateBillingSummary() error {
 
 	err = formatter.Generate(summary)
 	return err
+}
+
+func displayTopLevelUsage() {
+	fmt.Println("Azure costs summary")
+	fmt.Println("A tool for collecting billing data from Azure, and producing summarized outputs")
+	fmt.Println()
+	fmt.Println("Usage:")
+	fmt.Println("  collect")
+	fmt.Println("        Collects data from Azure and persists into a local store")
+	fmt.Println("  generate")
+	fmt.Println("        Produces a summarized output of the billing data in multiple formats")
+	fmt.Println()
 }
 
 func displayErrorMessage(msg string, flags *flag.FlagSet) {
