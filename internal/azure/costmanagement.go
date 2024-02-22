@@ -160,7 +160,7 @@ func (svc *CostService) ResourceGroupCostsForPeriod(subscriptionId string, year 
 		return nil, fmt.Errorf("unable to marshal request data: %s", err.Error())
 	}
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf(endpoint, subscriptionId), bytes.NewReader(requestContent))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf(endpoint, subscriptionId), nil)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request: %s", err.Error())
 	}
@@ -174,7 +174,7 @@ func (svc *CostService) ResourceGroupCostsForPeriod(subscriptionId string, year 
 
 	log.Printf("Requesing billing information for subscription %s, billing period %s", subscriptionId, billingFrom.Format("2006-01"))
 
-	resp, err := makeRequest(req, 3)
+	resp, err := makeRequest(req, requestContent, 3)
 	if err != nil {
 		return nil, err
 	}
@@ -211,15 +211,19 @@ func (svc *CostService) ResourceGroupCostsForPeriod(subscriptionId string, year 
 	return costs, nil
 }
 
-func makeRequest(req *http.Request, retryLimit int) (*http.Response, error) {
+func makeRequest(req *http.Request, content []byte, retryLimit int) (*http.Response, error) {
 	attempt := 1
-	for attempt <= retryLimit {
-		client := http.Client{}
+	client := http.Client{}
 
+	for attempt <= retryLimit {
 		log.Printf("Making request, attempt %d", attempt)
 
-		resp, err := client.Do(req)
+		attemptReq := req.Clone(req.Context())
+		attemptReq.Body = io.NopCloser(bytes.NewBuffer(content))
+
+		resp, err := client.Do(attemptReq)
 		if err != nil {
+			log.Println("An error occurred making the request", err)
 			return nil, fmt.Errorf("unable to make request: %s", err.Error())
 		}
 
