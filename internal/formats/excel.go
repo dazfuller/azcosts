@@ -71,8 +71,10 @@ func (ef ExcelFormatter) Generate(costs []model.ResourceGroupSummary) error {
 		}
 	}
 
+	customNumFmt := "#,##0.00;(#,##0.00);-"
+
 	billingStyle, _ := f.NewStyle(&excelize.Style{
-		NumFmt: 4, Alignment: &excelize.Alignment{
+		CustomNumFmt: &customNumFmt, Alignment: &excelize.Alignment{
 			Horizontal: "right",
 		},
 	})
