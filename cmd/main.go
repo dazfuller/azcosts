@@ -28,33 +28,90 @@ var (
 )
 
 func main() {
-	flag.StringVar(&subscriptionId, "subscription", "", "The id of the subscription to collect costs for")
-	flag.IntVar(&year, "year", time.Now().Year(), "The year of the billing period")
-	flag.IntVar(&month, "month", int(time.Now().Month()), "The month of the billing period")
-	flag.StringVar(&format, "format", "text", "The output format to use. Allowed values are 'text', 'csv', 'json', and 'excel'")
-	flag.BoolVar(&useStdOut, "stdout", false, "If set writes the data to stdout")
-	flag.StringVar(&outputPath, "path", "", "The output path to write the summary data to when not writing to stdout")
-	flag.BoolVar(&truncateDB, "truncate", false, "If specified will truncate the existing data in the database")
-	flag.BoolVar(&overwrite, "overwrite", false, "If specified then any existing data for a billing period will be overwritten with new data")
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("An error occurred running the application", r)
+		}
+	}()
 
-	flag.Usage = func() {
+	collectCmd := flag.NewFlagSet("collect", flag.ExitOnError)
+	generateCmd := flag.NewFlagSet("generate", flag.ExitOnError)
+
+	collectCmd.StringVar(&subscriptionId, "subscription", "", "The id of the subscription to collect costs for")
+	collectCmd.IntVar(&year, "year", time.Now().Year(), "The year of the billing period")
+	collectCmd.IntVar(&month, "month", int(time.Now().Month()), "The month of the billing period")
+	collectCmd.BoolVar(&truncateDB, "truncate", false, "If specified will truncate the existing data in the database")
+	collectCmd.BoolVar(&overwrite, "overwrite", false, "If specified then any existing data for a billing period will be overwritten with new data")
+
+	collectCmd.Usage = func() {
 		fmt.Println("Azure costs summary")
-		fmt.Println("Collects cost data from Microsoft Azure and summarises the output. The app makes use of")
+		fmt.Println("Collects cost data from Microsoft Azure. The app makes use of")
 		fmt.Println("the DefaultAzureCredential (https://learn.microsoft.com/dotnet/api/azure.identity.defaultazurecredential)")
 		fmt.Println("type, and so running locally will use the Azure CLI tool for authentication if available.")
 		fmt.Println("The user must have billing reader permissions on the subscription.")
 		fmt.Println()
 		fmt.Println("Usage:")
-		flag.PrintDefaults()
+		collectCmd.PrintDefaults()
 	}
 
-	flag.Parse()
+	generateCmd.StringVar(&format, "format", "text", "The output format to use. Allowed values are 'text', 'csv', 'json', and 'excel'")
+	generateCmd.BoolVar(&useStdOut, "stdout", false, "If set writes the data to stdout")
+	generateCmd.StringVar(&outputPath, "path", "", "The output path to write the summary data to when not writing to stdout")
 
+	generateCmd.Usage = func() {
+		fmt.Println("Azure costs summary")
+		fmt.Println("Generates a summarized output of the collected billing data.")
+		fmt.Println()
+		fmt.Println("Usage:")
+		generateCmd.PrintDefaults()
+	}
+
+	var err error
+
+	switch strings.ToLower(os.Args[1]) {
+	case "collect":
+		err := collectCmd.Parse(os.Args[2:])
+		if err != nil {
+			displayErrorMessage("", collectCmd)
+		}
+		validateCollectFlags(collectCmd)
+		err = collectBillingData()
+		break
+	case "generate":
+		err := generateCmd.Parse(os.Args[2:])
+		if err != nil {
+			displayErrorMessage("", generateCmd)
+		}
+		validateGenerateFlags(generateCmd)
+		err = generateBillingSummary()
+		break
+	default:
+		fmt.Println("Unexpected command, expected 'collect' or 'generate'")
+		os.Exit(1)
+	}
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+func validateCollectFlags(flags *flag.FlagSet) {
 	_, err := uuid.Parse(subscriptionId)
 	if err != nil {
-		displayErrorMessage("invalid subscription id, must be a valid guid")
+		displayErrorMessage("invalid subscription id, must be a valid guid", flags)
 	}
 
+	if month > 12 {
+		displayErrorMessage("invalid month, must be between 1 and 12", flags)
+	}
+
+	billingDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	if billingDate.After(time.Now().UTC()) {
+		displayErrorMessage("invalid billing period, must be in the past", flags)
+	}
+}
+
+func validateGenerateFlags(flags *flag.FlagSet) {
 	allowedFormats := []string{
 		"text",
 		"csv",
@@ -64,29 +121,26 @@ func main() {
 
 	formatLower := strings.ToLower(format)
 	if !slices.Contains(allowedFormats, formatLower) {
-		displayErrorMessage("a valid format must be specified")
+		displayErrorMessage("a valid format must be specified", flags)
 	}
 
 	if !useStdOut && len(outputPath) == 0 {
-		displayErrorMessage("when not writing to stdout an output path must be specified")
+		displayErrorMessage("when not writing to stdout an output path must be specified", flags)
 	} else if formatLower == "excel" && len(outputPath) == 0 {
-		displayErrorMessage("excel output cannot be written to stdout and so an output path must be specified")
+		displayErrorMessage("excel output cannot be written to stdout and so an output path must be specified", flags)
 	}
+}
 
-	if month > 12 {
-		displayErrorMessage("invalid month, must be between 1 and 12")
-	}
-
-	billingDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-	if billingDate.After(time.Now().UTC()) {
-		displayErrorMessage("invalid billing period, must be in the past")
-	}
-
+func collectBillingData() error {
 	dbPath, err := getDatabasePath()
-	panicIfError(err)
+	if err != nil {
+		return err
+	}
 
 	db, err := sqlite.NewCostManagementStore(dbPath, truncateDB)
-	panicIfError(err)
+	if err != nil {
+		return err
+	}
 	defer func(db *sqlite.CostManagementStore) {
 		err := db.Close()
 		if err != nil {
@@ -94,14 +148,29 @@ func main() {
 		}
 	}(db)
 
-	err = processSubscriptionBillingPeriods(db, billingDate)
-	panicIfError(err)
+	billingDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 
-	err = generateBillingSummary(db, formatLower)
-	panicIfError(err)
+	err = processSubscriptionBillingPeriods(db, billingDate)
+	return err
 }
 
-func generateBillingSummary(db *sqlite.CostManagementStore, format string) error {
+func generateBillingSummary() error {
+	dbPath, err := getDatabasePath()
+	if err != nil {
+		return err
+	}
+
+	db, err := sqlite.NewCostManagementStore(dbPath, truncateDB)
+	if err != nil {
+		return err
+	}
+	defer func(db *sqlite.CostManagementStore) {
+		err := db.Close()
+		if err != nil {
+			log.Printf("Unable to close data store")
+		}
+	}(db)
+
 	summary, err := db.GenerateSummaryByResourceGroup()
 	if err != nil {
 		return err
@@ -109,7 +178,7 @@ func generateBillingSummary(db *sqlite.CostManagementStore, format string) error
 
 	var formatter formats.Formatter
 
-	switch format {
+	switch strings.ToLower(format) {
 	case "text":
 		formatter, err = formats.MakeTextFormatter(useStdOut, outputPath)
 		break
@@ -131,56 +200,46 @@ func generateBillingSummary(db *sqlite.CostManagementStore, format string) error
 	return err
 }
 
-func displayErrorMessage(msg string) {
-	fmt.Printf("%s\n\n", msg)
-	flag.Usage()
+func displayErrorMessage(msg string, flags *flag.FlagSet) {
+	if len(msg) > 0 {
+		fmt.Printf("%s\n\n", msg)
+	}
+	flags.Usage()
 	os.Exit(1)
 }
 
-func processSubscriptionBillingPeriods(db *sqlite.CostManagementStore, fromDate time.Time) error {
+func processSubscriptionBillingPeriods(db *sqlite.CostManagementStore, billingDate time.Time) error {
 	svc := azure.NewCostService()
-	billingPeriods := calculateBillingPeriods(fromDate)
 	existingPeriods, err := db.GetSubscriptionBillingPeriods(subscriptionId)
 	if err != nil {
 		return err
 	}
 
-	for _, period := range billingPeriods {
-		if !overwrite && slices.Contains(existingPeriods, period) {
-			continue
-		}
+	period := billingDate.Format("2006-01")
 
-		billingDate, err := time.Parse("2006-01", period)
-		if err != nil {
-			return err
-		}
-
-		costs, err := svc.ResourceGroupCostsForPeriod(subscriptionId, billingDate.Year(), int(billingDate.Month()))
-		if err != nil {
-			return err
-		}
-
-		err = db.DeleteSubscriptionBillingPeriod(subscriptionId, period)
-		if err != nil {
-			return err
-		}
-
-		err = db.SaveCosts(costs)
-		if err != nil {
-			return err
-		}
+	if !overwrite && slices.Contains(existingPeriods, period) {
+		log.Println("Data for the selected billing period already exists, use the overwrite option to replace this data")
+		return nil
 	}
+
+	costs, err := svc.ResourceGroupCostsForPeriod(subscriptionId, billingDate.Year(), int(billingDate.Month()))
+	if err != nil {
+		return err
+	}
+
+	err = db.DeleteSubscriptionBillingPeriod(subscriptionId, period)
+	if err != nil {
+		return err
+	}
+
+	err = db.SaveCosts(costs)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Successfully collected and saved billing data for subscription %s for %s", subscriptionId, period)
 
 	return nil
-}
-
-func calculateBillingPeriods(billingDate time.Time) []string {
-	var billingPeriods []string
-	for billingDate.Before(time.Now().UTC()) {
-		billingPeriods = append(billingPeriods, billingDate.Format("2006-01"))
-		billingDate = billingDate.AddDate(0, 1, 0)
-	}
-	return billingPeriods
 }
 
 func getDatabasePath() (string, error) {
@@ -200,10 +259,4 @@ func getDatabasePath() (string, error) {
 	}
 
 	return path.Join(dbDir, "costs.db"), nil
-}
-
-func panicIfError(err error) {
-	if err != nil {
-		panic(err)
-	}
 }
