@@ -16,6 +16,13 @@ import (
 	"time"
 )
 
+const (
+	TextFormat  = "text"
+	CsvFormat   = "csv"
+	JsonFormat  = "json"
+	ExcelFormat = "excel"
+)
+
 var (
 	subscriptionId string
 	year           int
@@ -54,7 +61,8 @@ func main() {
 		collectCmd.PrintDefaults()
 	}
 
-	generateCmd.StringVar(&format, "format", "text", "The output format to use. Allowed values are 'text', 'csv', 'json', and 'excel'")
+	generateCmd.StringVar(&format, "format", "text", fmt.Sprintf(
+		"The output format to use. Allowed values are '%s', '%s', '%s', and '%s'", TextFormat, CsvFormat, JsonFormat, ExcelFormat))
 	generateCmd.BoolVar(&useStdOut, "stdout", false, "If set writes the data to stdout")
 	generateCmd.StringVar(&outputPath, "path", "", "The output path to write the summary data to when not writing to stdout")
 
@@ -120,10 +128,10 @@ func validateCollectFlags(flags *flag.FlagSet) {
 
 func validateGenerateFlags(flags *flag.FlagSet) {
 	allowedFormats := []string{
-		"text",
-		"csv",
-		"json",
-		"excel",
+		TextFormat,
+		CsvFormat,
+		JsonFormat,
+		ExcelFormat,
 	}
 
 	formatLower := strings.ToLower(format)
@@ -186,16 +194,16 @@ func generateBillingSummary() error {
 	var formatter formats.Formatter
 
 	switch strings.ToLower(format) {
-	case "text":
+	case TextFormat:
 		formatter, err = formats.MakeTextFormatter(useStdOut, outputPath)
 		break
-	case "csv":
+	case CsvFormat:
 		formatter, err = formats.MakeCsvFormatter(useStdOut, outputPath)
 		break
-	case "json":
+	case JsonFormat:
 		formatter, err = formats.MakeJsonFormatter(useStdOut, outputPath)
 		break
-	case "excel":
+	case ExcelFormat:
 		formatter, err = formats.MakeExcelFormatter(outputPath)
 		break
 	}
