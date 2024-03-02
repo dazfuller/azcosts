@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"errors"
@@ -34,7 +34,7 @@ var (
 	overwrite      bool
 )
 
-func main() {
+func Execute() {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("An error occurred running the application", r)
