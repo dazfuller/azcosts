@@ -2,23 +2,14 @@ package azure
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/dazfuller/azcosts/internal/model"
 	"io"
 	"log"
 	"net/http"
 	"time"
-)
-
-const (
-	apiVersion      = "2023-11-01"
-	endpoint        = "https://management.azure.com/subscriptions/%s/providers/Microsoft.CostManagement/query"
-	managementScope = "https://management.azure.com/.default"
 )
 
 type timePeriod struct {
@@ -72,7 +63,10 @@ type costResponse struct {
 }
 
 type CostService struct {
-	identity azcore.TokenCredential
+	azureService
+	apiVersion      string
+	endpoint        string
+	managementScope string
 }
 
 func NewCostService() CostService {
@@ -82,16 +76,13 @@ func NewCostService() CostService {
 	}
 
 	return CostService{
-		identity: cred,
+		azureService: azureService{
+			identity: cred,
+		},
+		apiVersion:      "2023-11-01",
+		endpoint:        "https://management.azure.com/subscriptions/%s/providers/Microsoft.CostManagement/query",
+		managementScope: "https://management.azure.com/.default",
 	}
-}
-
-func (svc *CostService) getAccessToken(scope string) (string, error) {
-	token, err := svc.identity.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{scope}})
-	if err != nil {
-		return "", err
-	}
-	return token.Token, nil
 }
 
 func (svc *CostService) ResourceGroupCostsForPeriod(subscriptionId string, year int, month int) ([]model.ResourceGroupCost, error) {
@@ -114,7 +105,7 @@ func (svc *CostService) ResourceGroupCostsForPeriod(subscriptionId string, year 
 		return nil, fmt.Errorf("billing period is in the future")
 	}
 
-	token, err := svc.getAccessToken(managementScope)
+	token, err := svc.getAccessToken(svc.managementScope)
 	if err != nil {
 		return nil, fmt.Errorf("unable to acquire token: %s", err.Error())
 	}
@@ -160,12 +151,12 @@ func (svc *CostService) ResourceGroupCostsForPeriod(subscriptionId string, year 
 		return nil, fmt.Errorf("unable to marshal request data: %s", err.Error())
 	}
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf(endpoint, subscriptionId), nil)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf(svc.endpoint, subscriptionId), nil)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request: %s", err.Error())
 	}
 	q := req.URL.Query()
-	q.Add("api-version", apiVersion)
+	q.Add("api-version", svc.apiVersion)
 	req.URL.RawQuery = q.Encode()
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
