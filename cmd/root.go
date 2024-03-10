@@ -1,17 +1,21 @@
 package cmd
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
 	"github.com/dazfuller/azcosts/internal/azure"
 	"github.com/dazfuller/azcosts/internal/formats"
+	"github.com/dazfuller/azcosts/internal/model"
 	"github.com/dazfuller/azcosts/internal/sqlite"
 	"github.com/google/uuid"
 	"log"
 	"os"
 	"path"
 	"slices"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -24,14 +28,15 @@ const (
 )
 
 var (
-	subscriptionId string
-	year           int
-	month          int
-	format         string
-	useStdOut      bool
-	outputPath     string
-	truncateDB     bool
-	overwrite      bool
+	subscriptionId   string
+	subscriptionName string
+	year             int
+	month            int
+	format           string
+	useStdOut        bool
+	outputPath       string
+	truncateDB       bool
+	overwrite        bool
 )
 
 func Execute() {
@@ -41,10 +46,22 @@ func Execute() {
 		}
 	}()
 
+	subscriptionCmd := flag.NewFlagSet("subscription", flag.ExitOnError)
 	collectCmd := flag.NewFlagSet("collect", flag.ExitOnError)
 	generateCmd := flag.NewFlagSet("generate", flag.ExitOnError)
 
+	subscriptionCmd.StringVar(&subscriptionName, "name", "", "Full or partial name to filter by, if not provided then a full list is returned")
+
+	subscriptionCmd.Usage = func() {
+		fmt.Println("Azure costs summary")
+		fmt.Println("Outputs a list of subscriptions available to the current account")
+		fmt.Println()
+		fmt.Println("Usage:")
+		subscriptionCmd.PrintDefaults()
+	}
+
 	collectCmd.StringVar(&subscriptionId, "subscription", "", "The id of the subscription to collect costs for")
+	collectCmd.StringVar(&subscriptionName, "name", "", "Full or partial name of the subscription if the id is not known")
 	collectCmd.IntVar(&year, "year", time.Now().Year(), "The year of the billing period")
 	collectCmd.IntVar(&month, "month", int(time.Now().Month()), "The month of the billing period")
 	collectCmd.BoolVar(&truncateDB, "truncate", false, "If specified will truncate the existing data in the database")
@@ -82,6 +99,13 @@ func Execute() {
 	var err error
 
 	switch strings.ToLower(os.Args[1]) {
+	case "subscription":
+		err := subscriptionCmd.Parse(os.Args[2:])
+		if err != nil {
+			displayErrorMessage("", subscriptionCmd)
+		}
+		err = displaySubscriptions()
+		break
 	case "collect":
 		err := collectCmd.Parse(os.Args[2:])
 		if err != nil {
@@ -99,7 +123,7 @@ func Execute() {
 		err = generateBillingSummary()
 		break
 	default:
-		fmt.Println("Unexpected command, expected 'collect' or 'generate'")
+		fmt.Println("Unexpected command, expected 'subscription', 'collect' or 'generate'")
 		fmt.Println()
 		displayTopLevelUsage()
 		os.Exit(1)
@@ -111,9 +135,15 @@ func Execute() {
 }
 
 func validateCollectFlags(flags *flag.FlagSet) {
-	_, err := uuid.Parse(subscriptionId)
-	if err != nil {
-		displayErrorMessage("invalid subscription id, must be a valid guid", flags)
+	if len(subscriptionId) == 0 && len(subscriptionName) == 0 {
+		displayErrorMessage("either a subscription id or name must be provided", flags)
+	}
+
+	if len(subscriptionId) > 0 {
+		_, err := uuid.Parse(subscriptionId)
+		if err != nil {
+			displayErrorMessage("invalid subscription id, must be a valid guid", flags)
+		}
 	}
 
 	if month > 12 {
@@ -146,10 +176,52 @@ func validateGenerateFlags(flags *flag.FlagSet) {
 	}
 }
 
+func displaySubscriptions() error {
+	svc := azure.NewSubscriptionService()
+
+	var err error
+	var subscriptions []model.Subscription
+
+	if len(subscriptionName) > 0 {
+		subscriptions, err = svc.FindSubscription(subscriptionName)
+		if err != nil {
+			return err
+		}
+	} else {
+		subscriptions, err = svc.GetSubscriptions()
+		if err != nil {
+			return err
+		}
+	}
+
+	sort.Slice(subscriptions, func(a, b int) bool {
+		return subscriptions[a].Name < subscriptions[b].Name
+	})
+
+	fmt.Printf("%-51s%-37s%-37s\n", "Subscription", "Subscription Id", "Tenant Id")
+	fmt.Printf("%-51s%-37s%-37s\n", strings.Repeat("=", 50), strings.Repeat("=", 36), strings.Repeat("=", 36))
+	for _, sub := range subscriptions {
+		name := sub.Name
+		if len(name) > 50 {
+			name = name[:50]
+		}
+		fmt.Printf("%-50s %-36s %-36s\n", name, sub.Id, sub.TenantId)
+	}
+
+	return nil
+}
+
 func collectBillingData() error {
 	dbPath, err := getDatabasePath()
 	if err != nil {
 		return err
+	}
+
+	if len(subscriptionId) == 0 {
+		subscriptionId, err = getSubscriptionId()
+		if err != nil {
+			return err
+		}
 	}
 
 	db, err := sqlite.NewCostManagementStore(dbPath, truncateDB)
@@ -167,6 +239,47 @@ func collectBillingData() error {
 
 	err = processSubscriptionBillingPeriods(db, billingDate)
 	return err
+}
+
+func getSubscriptionId() (string, error) {
+	svc := azure.NewSubscriptionService()
+	subscriptions, err := svc.FindSubscription(subscriptionName)
+	if err != nil {
+		return "", err
+	}
+
+	if len(subscriptions) == 0 {
+		return "", fmt.Errorf("no subscriptions found matching the provided name")
+	} else if len(subscriptions) == 1 {
+		return subscriptions[0].Id, nil
+	} else if len(subscriptions) >= 10 {
+		return "", fmt.Errorf("too many subscriptions returned from filter, please try providing a more precise matching term")
+	}
+
+	validSelection := false
+	selectedSub := ""
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Println("Please select on of the following subscription")
+	for i, sub := range subscriptions {
+		fmt.Printf("%d: %s\n", i, sub.Name)
+	}
+
+	for !validSelection {
+		fmt.Print("> ")
+
+		selected, _ := reader.ReadString('\n')
+		selected = strings.TrimSpace(selected)
+		index, err := strconv.Atoi(selected)
+		if err != nil || index < 0 || index >= len(subscriptions) {
+			fmt.Println("Invalid selection. Please try again.")
+			continue
+		}
+		selectedSub = subscriptions[index].Id
+		validSelection = true
+	}
+
+	return selectedSub, nil
 }
 
 func generateBillingSummary() error {
@@ -220,6 +333,8 @@ func displayTopLevelUsage() {
 	fmt.Println("A tool for collecting billing data from Azure, and producing summarized outputs")
 	fmt.Println()
 	fmt.Println("Usage:")
+	fmt.Println("  subscription")
+	fmt.Println("        Displays subscriptions available to the current user")
 	fmt.Println("  collect")
 	fmt.Println("        Collects data from Azure and persists into a local store")
 	fmt.Println("  generate")
