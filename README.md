@@ -4,17 +4,24 @@ This is a small CLI app I wrote as I wanted to get back into writing code with G
 
 The application uses the same APIs as the billing blade in the Azure Portal.
 
+## Subscriptions
+
+The application is capable of list the Azure Subscriptions the account has access to, if a name is provided then the list of subscriptions is filtered by fuzzy matching the input name against the subscriptions display name.
+
 ## Collecting
 
 When collecting billing data you can specify the following arguments.
 
 | Argument     | Required | Description                                                      |
 |--------------|----------|------------------------------------------------------------------|
-| subscription | Yes      | The GUID value of the subscription to collect for                |
+| subscription | No       | The GUID value of the subscription to collect for                |
+| name         | No       | The full or partial name of the subscription to collect for      |
 | year         | No       | The billing year to collect for (default is the current year)    |
 | month        | No       | The billing month to collect for (default is the current month)  |
 | overwrite    | No       | When used will re-collect the billing data for the current month |
 | truncate     | No       | When used will truncate all data collected so far                |
+
+Either the subscription id or name _must_ be specified. Where a name is specified then if a single subscription is found it will be collected immediately. If more than 1 subscription is found the user is prompted to confirm which subscription they wish to collect for.
 
 If data has already been collected for the subscription and the provided billing period it will not be re-collected until the `-overwrite` flag is provided.
 
