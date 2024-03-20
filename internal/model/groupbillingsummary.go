@@ -8,6 +8,7 @@ type BillingPeriodCost struct {
 type ResourceGroupSummary struct {
 	Name             string              `json:"name"`
 	SubscriptionName string              `json:"subscriptionName"`
+	Status           string              `json:"status"`
 	Costs            []BillingPeriodCost `json:"costs"`
 	TotalCost        float64             `json:"totalCost"`
 }

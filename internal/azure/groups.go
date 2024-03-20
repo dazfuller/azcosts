@@ -53,7 +53,7 @@ func (rgs *ResourceGroupService) ListResourceGroups(subscriptionId string) ([]mo
 		return nil, err
 	}
 
-	token, err := rgs.getAccessToken(rgs.apiVersion)
+	token, err := rgs.getAccessToken(rgs.managementScope)
 	if err != nil {
 		return nil, err
 	}

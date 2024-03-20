@@ -352,6 +352,7 @@ func displayErrorMessage(msg string, flags *flag.FlagSet) {
 
 func processSubscriptionBillingPeriods(db *sqlite.CostManagementStore, billingDate time.Time) error {
 	svc := azure.NewCostService()
+	rgSvc := azure.NewResourceGroupService()
 	existingPeriods, err := db.GetSubscriptionBillingPeriods(subscriptionId)
 	if err != nil {
 		return err
@@ -364,6 +365,11 @@ func processSubscriptionBillingPeriods(db *sqlite.CostManagementStore, billingDa
 		return nil
 	}
 
+	rgs, err := rgSvc.ListResourceGroups(subscriptionId)
+	if err != nil {
+		return err
+	}
+
 	costs, err := svc.ResourceGroupCostsForPeriod(subscriptionId, billingDate.Year(), int(billingDate.Month()))
 	if err != nil {
 		return err
@@ -374,7 +380,7 @@ func processSubscriptionBillingPeriods(db *sqlite.CostManagementStore, billingDa
 		return err
 	}
 
-	err = db.SaveCosts(costs)
+	err = db.SaveCosts(costs, rgs)
 	if err != nil {
 		return err
 	}

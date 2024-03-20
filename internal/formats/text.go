@@ -34,15 +34,15 @@ func (tf TextFormatter) Generate(costs []model.ResourceGroupSummary) error {
 		writer = bufio.NewWriter(file)
 	}
 
-	writer.WriteString(fmt.Sprintf("%-70s %-30s", "Resource Group", "Subscription"))
+	writer.WriteString(fmt.Sprintf("%-70s %-30s %-8s", "Resource Group", "Subscription", "Status"))
 
 	for _, bp := range costs[0].Costs {
 		writer.WriteString(fmt.Sprintf(" %12s", bp.Period))
 	}
 
-	writer.WriteString(fmt.Sprintf("%12s\n", "Total Costs"))
+	writer.WriteString(fmt.Sprintf(" %12s\n", "Total Costs"))
 
-	writer.WriteString(fmt.Sprintf("%-70s %-30s", strings.Repeat("=", 70), strings.Repeat("=", 30)))
+	writer.WriteString(fmt.Sprintf("%-70s %-30s %-8s", strings.Repeat("=", 70), strings.Repeat("=", 30), strings.Repeat("=", 8)))
 
 	for range costs[0].Costs {
 		writer.WriteString(fmt.Sprintf(" %12s", strings.Repeat("=", 12)))
@@ -51,7 +51,7 @@ func (tf TextFormatter) Generate(costs []model.ResourceGroupSummary) error {
 	writer.WriteString(fmt.Sprintf(" %12s\n", strings.Repeat("=", 12)))
 
 	for _, rg := range costs {
-		writer.WriteString(fmt.Sprintf("%-70s %-30s", trimValue(rg.Name, 50), trimValue(rg.SubscriptionName, 30)))
+		writer.WriteString(fmt.Sprintf("%-70s %-30s %-8s", trimValue(rg.Name, 50), trimValue(rg.SubscriptionName, 30), rg.Status))
 		for _, cost := range rg.Costs {
 			writer.WriteString(fmt.Sprintf(" %12.2f", cost.Total))
 		}
