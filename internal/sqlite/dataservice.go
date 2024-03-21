@@ -181,7 +181,8 @@ func (cm *CostManagementStore) createSummaryView(billingPeriods []string) error 
 	queryBuilder := strings.Builder{}
 	queryBuilder.WriteString("DROP VIEW IF EXISTS vw_cost_summary;")
 	queryBuilder.WriteString("CREATE VIEW vw_cost_summary AS\n")
-	queryBuilder.WriteString("SELECT resource_group AS `ResourceGroup`, subscription_name AS `Subscription`, current_status AS `Status`\n")
+	queryBuilder.WriteString("SELECT resource_group AS `ResourceGroup`, subscription_name AS `Subscription`\n")
+	queryBuilder.WriteString("    , CASE WHEN current_status = 'active' THEN 1 ELSE 0 END AS 'Active'\n")
 
 	for _, bp := range billingPeriods {
 		queryBuilder.WriteString(fmt.Sprintf(", SUM(cost) filter (where billing_period = '%[1]s') AS `%[1]s`\n", bp))
@@ -235,7 +236,7 @@ func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.Resourc
 		summary = append(summary, model.ResourceGroupSummary{
 			Name:             row[0].(string),
 			SubscriptionName: row[1].(string),
-			Status:           row[2].(string),
+			Active:           row[2].(int64) == 1,
 			Costs:            groupBillingCosts,
 			TotalCost:        costToFloat(row[len(row)-1]),
 		})

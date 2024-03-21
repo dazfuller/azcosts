@@ -100,14 +100,14 @@ func Execute() {
 
 	switch strings.ToLower(os.Args[1]) {
 	case "subscription":
-		err := subscriptionCmd.Parse(os.Args[2:])
+		err = subscriptionCmd.Parse(os.Args[2:])
 		if err != nil {
 			displayErrorMessage("", subscriptionCmd)
 		}
 		err = displaySubscriptions()
 		break
 	case "collect":
-		err := collectCmd.Parse(os.Args[2:])
+		err = collectCmd.Parse(os.Args[2:])
 		if err != nil {
 			displayErrorMessage("", collectCmd)
 		}
@@ -115,7 +115,7 @@ func Execute() {
 		err = collectBillingData()
 		break
 	case "generate":
-		err := generateCmd.Parse(os.Args[2:])
+		err = generateCmd.Parse(os.Args[2:])
 		if err != nil {
 			displayErrorMessage("", generateCmd)
 		}

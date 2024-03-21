@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/dazfuller/azcosts/internal/model"
 	"os"
+	"strconv"
 )
 
 type CsvFormatter struct {
@@ -34,7 +35,7 @@ func (cf CsvFormatter) Generate(costs []model.ResourceGroupSummary) error {
 	}
 
 	// Write header
-	header := []string{"Name", "Subscription Name", "Status"}
+	header := []string{"Name", "Subscription Name", "Active"}
 	for _, cost := range costs[0].Costs {
 		header = append(header, cost.Period)
 	}
@@ -45,7 +46,7 @@ func (cf CsvFormatter) Generate(costs []model.ResourceGroupSummary) error {
 	}
 
 	for _, rg := range costs {
-		record := []string{rg.Name, rg.SubscriptionName, rg.Status}
+		record := []string{rg.Name, rg.SubscriptionName, strconv.FormatBool(rg.Active)}
 		for _, cost := range rg.Costs {
 			record = append(record, fmt.Sprintf("%.2f", cost.Total))
 		}

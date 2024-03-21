@@ -73,7 +73,7 @@ func (ef ExcelFormatter) addHeaders(f *excelize.File, sheetName string, costEntr
 	headers := []string{
 		"Resource Group",
 		"Subscription",
-		"Status",
+		"Active",
 	}
 
 	for _, bp := range costEntry.Costs {
@@ -96,7 +96,7 @@ func (ef ExcelFormatter) addCostDataToSheet(f *excelize.File, sheetName string, 
 		row := []interface{}{
 			entry.Name,
 			entry.SubscriptionName,
-			entry.Status,
+			entry.Active,
 		}
 
 		for _, cost := range entry.Costs {
