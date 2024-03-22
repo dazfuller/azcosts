@@ -171,7 +171,7 @@ func validateGenerateFlags(flags *flag.FlagSet) {
 
 	if !useStdOut && len(outputPath) == 0 {
 		displayErrorMessage("when not writing to stdout an output path must be specified", flags)
-	} else if formatLower == "excel" && len(outputPath) == 0 {
+	} else if formatLower == ExcelFormat && len(outputPath) == 0 {
 		displayErrorMessage("excel output cannot be written to stdout and so an output path must be specified", flags)
 	}
 }
