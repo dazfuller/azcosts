@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/dazfuller/azcosts/internal/model"
 	"io"
 	"log"
@@ -70,15 +69,8 @@ type CostService struct {
 }
 
 func NewCostService() CostService {
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
-	if err != nil {
-		panic(err)
-	}
-
 	return CostService{
-		azureService: azureService{
-			identity: cred,
-		},
+		azureService:    newAzureService(),
 		apiVersion:      "2023-11-01",
 		endpoint:        "https://management.azure.com/subscriptions/%s/providers/Microsoft.CostManagement/query",
 		managementScope: "https://management.azure.com/.default",
