@@ -260,7 +260,7 @@ func getSubscriptionId() (string, error) {
 	selectedSub := ""
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Println("Please select on of the following subscription")
+	fmt.Println("Please select one of the following subscriptions")
 	for i, sub := range subscriptions {
 		fmt.Printf("%d: %s\n", i, sub.Name)
 	}
