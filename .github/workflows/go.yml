@@ -16,6 +16,9 @@ jobs:
       artifacts: ${{ steps.releaser.outputs.artifacts }}
     runs-on: ubuntu-latest
     steps:
+    - if: ${{ github.event_name == 'pull_request' }}
+      run: echo "flags=--snapshot" >> $GITHUB_ENV
+
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
@@ -30,15 +33,7 @@ jobs:
     - name: Run GoReleaser
       if: ${{ github.event_name != 'pull_request' }}
       id: releaser
-      uses: goreleaser/goreleaser-action@v4
+      uses: goreleaser/goreleaser-action@v5
       with:
         version: latest
-        args: release
-
-    - name: Run GoReleaser
-      if: ${{ github.event_name == 'pull_request' }}
-      id: releaser-pr
-      uses: goreleaser/goreleaser-action@v4
-      with:
-        version: latest
-        args: release --snapshot --clean
+        args: release ${{ env.flags }}
