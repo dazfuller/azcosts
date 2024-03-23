@@ -242,6 +242,10 @@ func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.Resourc
 		})
 	}
 
+	if summary == nil {
+		return nil, fmt.Errorf("no cost data has yet been collected to report on")
+	}
+
 	return summary, nil
 }
 
