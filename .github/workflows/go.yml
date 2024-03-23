@@ -12,13 +12,15 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        goos: [ 'darwin', 'linux', 'windows' ]
-        goarch: [ 'arm64', 'amd64' ]
+    outputs:
+      artifacts: ${{ steps.releaser.outputs.artifacts }}
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        fetch-tags: true
 
     - name: Set up Go
       uses: actions/setup-go@v5
