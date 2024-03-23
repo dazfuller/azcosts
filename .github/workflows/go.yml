@@ -36,3 +36,10 @@ jobs:
       with:
         version: latest
         args: release ${{ env.flags }}
+
+    - name: Upload
+      if: ${{ github.event_name == 'pull_request' }}
+      uses: actions/upload-artifact@v4
+      with:
+        path: ./dist/*
+        if-no-files-found: warn
