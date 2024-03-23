@@ -27,7 +27,7 @@ jobs:
 
     - name: Build
       run: |
-        GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -v
+        CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -v
 
     - name: Upload
       if: ${{ github.event_name != 'pull_request' }}
