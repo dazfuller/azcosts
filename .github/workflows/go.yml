@@ -37,7 +37,7 @@ jobs:
         version: latest
         args: release ${{ env.flags }}
       env:
-        GITHUB_TOKEN: {{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload
       if: ${{ github.event_name == 'pull_request' }}
