@@ -100,14 +100,14 @@ func Execute() {
 
 	switch strings.ToLower(os.Args[1]) {
 	case "subscription":
-		err := subscriptionCmd.Parse(os.Args[2:])
+		err = subscriptionCmd.Parse(os.Args[2:])
 		if err != nil {
 			displayErrorMessage("", subscriptionCmd)
 		}
 		err = displaySubscriptions()
 		break
 	case "collect":
-		err := collectCmd.Parse(os.Args[2:])
+		err = collectCmd.Parse(os.Args[2:])
 		if err != nil {
 			displayErrorMessage("", collectCmd)
 		}
@@ -115,7 +115,7 @@ func Execute() {
 		err = collectBillingData()
 		break
 	case "generate":
-		err := generateCmd.Parse(os.Args[2:])
+		err = generateCmd.Parse(os.Args[2:])
 		if err != nil {
 			displayErrorMessage("", generateCmd)
 		}
@@ -171,7 +171,7 @@ func validateGenerateFlags(flags *flag.FlagSet) {
 
 	if !useStdOut && len(outputPath) == 0 {
 		displayErrorMessage("when not writing to stdout an output path must be specified", flags)
-	} else if formatLower == "excel" && len(outputPath) == 0 {
+	} else if formatLower == ExcelFormat && len(outputPath) == 0 {
 		displayErrorMessage("excel output cannot be written to stdout and so an output path must be specified", flags)
 	}
 }
@@ -260,7 +260,7 @@ func getSubscriptionId() (string, error) {
 	selectedSub := ""
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Println("Please select on of the following subscription")
+	fmt.Println("Please select one of the following subscriptions")
 	for i, sub := range subscriptions {
 		fmt.Printf("%d: %s\n", i, sub.Name)
 	}
@@ -352,6 +352,7 @@ func displayErrorMessage(msg string, flags *flag.FlagSet) {
 
 func processSubscriptionBillingPeriods(db *sqlite.CostManagementStore, billingDate time.Time) error {
 	svc := azure.NewCostService()
+	rgSvc := azure.NewResourceGroupService()
 	existingPeriods, err := db.GetSubscriptionBillingPeriods(subscriptionId)
 	if err != nil {
 		return err
@@ -364,6 +365,11 @@ func processSubscriptionBillingPeriods(db *sqlite.CostManagementStore, billingDa
 		return nil
 	}
 
+	rgs, err := rgSvc.ListResourceGroups(subscriptionId)
+	if err != nil {
+		return err
+	}
+
 	costs, err := svc.ResourceGroupCostsForPeriod(subscriptionId, billingDate.Year(), int(billingDate.Month()))
 	if err != nil {
 		return err
@@ -374,7 +380,7 @@ func processSubscriptionBillingPeriods(db *sqlite.CostManagementStore, billingDa
 		return err
 	}
 
-	err = db.SaveCosts(costs)
+	err = db.SaveCosts(costs, rgs)
 	if err != nil {
 		return err
 	}

@@ -7,33 +7,73 @@ import (
 	"github.com/dazfuller/azcosts/internal/model"
 	_ "github.com/mattn/go-sqlite3"
 	"os"
+	"slices"
 	"strings"
 )
+
+const dbVersion = 1
 
 type CostManagementStore struct {
 	dbPath string
 	db     *sql.DB
 }
 
+func getDatabaseVersion(db *sql.DB) (int, error) {
+	row := db.QueryRow("PRAGMA user_version")
+
+	var userVersion int
+	err := row.Scan(&userVersion)
+	if err != nil {
+		return 0, err
+	}
+
+	return userVersion, nil
+}
+
+func updateDbVersion1(db *sql.DB) error {
+	_, err := db.Exec(`ALTER TABLE costs ADD resource_group_status TEXT DEFAULT 'inactive';
+
+	PRAGMA user_version = 1;`)
+
+	return err
+}
+
 // initializeDatabase initializes the database by creating the "costs" table if it doesn't exist.
 //
 // If an error occurs during table creation, the error is returned.
 func initializeDatabase(db *sql.DB) error {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS costs
+	ver, err := getDatabaseVersion(db)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS costs
     (
         id INTEGER PRIMARY KEY AUTOINCREMENT
         , billing_from DATETIME
         , billing_period TEXT
         , resource_group TEXT
+        , resource_group_status TEXT
         , subscription_name TEXT
         , subscription_id TEXT
         , cost READ
         , cost_usd REAL
         , currency TEXT
-    )`)
-
+    );`)
 	if err != nil {
 		return err
+	}
+
+	_, err = db.Exec(fmt.Sprintf("PRAGMA user_version = %d", dbVersion))
+	if err != nil {
+		return err
+	}
+
+	if ver < dbVersion {
+		err = updateDbVersion1(db)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -76,7 +116,7 @@ func (cm *CostManagementStore) Close() error {
 	return nil
 }
 
-func (cm *CostManagementStore) SaveCosts(costs []model.ResourceGroupCost) error {
+func (cm *CostManagementStore) SaveCosts(costs []model.ResourceGroupCost, currentResourceGroups []model.ResourceGroup) error {
 	tx, err := cm.db.Begin()
 	if err != nil {
 		return err
@@ -87,6 +127,7 @@ func (cm *CostManagementStore) SaveCosts(costs []model.ResourceGroupCost) error 
 			billing_from
 			, billing_period
 			, resource_group
+			, resource_group_status
 			, subscription_name
 			, subscription_id
 			, cost
@@ -95,7 +136,7 @@ func (cm *CostManagementStore) SaveCosts(costs []model.ResourceGroupCost) error 
 		)
 		VALUES
 		(
-			?, ?, ?, ?, ?, ?, ?, ?)
+			?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`)
 	if err != nil {
 		tx.Rollback()
@@ -103,7 +144,23 @@ func (cm *CostManagementStore) SaveCosts(costs []model.ResourceGroupCost) error 
 	}
 
 	for _, cost := range costs {
-		_, err := stmt.Exec(cost.BillingPeriod, cost.BillingPeriod.Format("2006-01"), cost.Name, cost.SubscriptionName, cost.SubscriptionId, cost.Cost, cost.CostUSD, cost.Currency)
+		status := "inactive"
+		if slices.ContainsFunc(currentResourceGroups, func(rg model.ResourceGroup) bool {
+			return cost.Name == rg.Name
+		}) {
+			status = "active"
+		}
+
+		_, err := stmt.Exec(
+			cost.BillingPeriod,
+			cost.BillingPeriod.Format("2006-01"),
+			cost.Name,
+			status,
+			cost.SubscriptionName,
+			cost.SubscriptionId,
+			cost.Cost,
+			cost.CostUSD,
+			cost.Currency)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -125,13 +182,18 @@ func (cm *CostManagementStore) createSummaryView(billingPeriods []string) error 
 	queryBuilder.WriteString("DROP VIEW IF EXISTS vw_cost_summary;")
 	queryBuilder.WriteString("CREATE VIEW vw_cost_summary AS\n")
 	queryBuilder.WriteString("SELECT resource_group AS `ResourceGroup`, subscription_name AS `Subscription`\n")
+	queryBuilder.WriteString("    , CASE WHEN current_status = 'active' THEN 1 ELSE 0 END AS 'Active'\n")
 
 	for _, bp := range billingPeriods {
 		queryBuilder.WriteString(fmt.Sprintf(", SUM(cost) filter (where billing_period = '%[1]s') AS `%[1]s`\n", bp))
 	}
 
 	queryBuilder.WriteString(", SUM(cost) AS `TotalCost`\n")
-	queryBuilder.WriteString("FROM costs\n")
+	queryBuilder.WriteString("FROM (\n")
+	queryBuilder.WriteString("    SELECT resource_group, subscription_id, subscription_name, resource_group_status, cost, billing_period\n")
+	queryBuilder.WriteString("           , LAST_VALUE(resource_group_status) OVER (PARTITION BY subscription_id, resource_group ORDER BY billing_from RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS `current_status`\n")
+	queryBuilder.WriteString("    FROM costs\n")
+	queryBuilder.WriteString(")\n")
 	queryBuilder.WriteString("GROUP BY resource_group, subscription_name;\n")
 
 	_, err := cm.db.Exec(queryBuilder.String())
@@ -164,7 +226,7 @@ func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.Resourc
 	for rows.Next() {
 		_ = rows.Scan(rowPtr...)
 		groupBillingCosts := make([]model.BillingPeriodCost, 0, len(billingPeriods))
-		for i := 2; i < len(row)-1; i++ {
+		for i := 3; i < len(row)-1; i++ {
 			groupBillingCosts = append(groupBillingCosts, model.BillingPeriodCost{
 				Period: cols[i],
 				Total:  costToFloat(row[i]),
@@ -174,6 +236,7 @@ func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.Resourc
 		summary = append(summary, model.ResourceGroupSummary{
 			Name:             row[0].(string),
 			SubscriptionName: row[1].(string),
+			Active:           row[2].(int64) == 1,
 			Costs:            groupBillingCosts,
 			TotalCost:        costToFloat(row[len(row)-1]),
 		})
