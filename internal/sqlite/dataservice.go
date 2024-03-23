@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dazfuller/azcosts/internal/model"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"os"
 	"slices"
 	"strings"
@@ -92,7 +92,7 @@ func NewCostManagementStore(dbPath string, truncate bool) (*CostManagementStore,
 		}
 	}
 
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, err
 	}
