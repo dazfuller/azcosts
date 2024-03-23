@@ -31,7 +31,6 @@ jobs:
         go-version: '1.22'
 
     - name: Run GoReleaser
-      if: ${{ github.event_name != 'pull_request' }}
       id: releaser
       uses: goreleaser/goreleaser-action@v5
       with:
