@@ -3,7 +3,6 @@ package azure
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/dazfuller/azcosts/internal/model"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"net/http"
@@ -40,15 +39,8 @@ type SubscriptionService struct {
 }
 
 func NewSubscriptionService() SubscriptionService {
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
-	if err != nil {
-		panic(err)
-	}
-
 	return SubscriptionService{
-		azureService: azureService{
-			identity: cred,
-		},
+		azureService:    newAzureService(),
 		apiVersion:      "2022-12-01",
 		endpoint:        "https://management.azure.com/subscriptions",
 		managementScope: "https://management.azure.com/.default",

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dazfuller/azcosts/internal/model"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"os"
 	"slices"
 	"strings"
@@ -92,7 +92,7 @@ func NewCostManagementStore(dbPath string, truncate bool) (*CostManagementStore,
 		}
 	}
 
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +240,10 @@ func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.Resourc
 			Costs:            groupBillingCosts,
 			TotalCost:        costToFloat(row[len(row)-1]),
 		})
+	}
+
+	if summary == nil {
+		return nil, fmt.Errorf("no cost data has yet been collected to report on")
 	}
 
 	return summary, nil

@@ -12,27 +12,36 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        goos: [ 'darwin', 'linux', 'windows' ]
-        goarch: [ 'arm64', 'amd64' ]
+    outputs:
+      artifacts: ${{ steps.releaser.outputs.artifacts }}
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - if: ${{ github.event_name == 'pull_request' }}
+      run: echo "flags=--snapshot" >> $GITHUB_ENV
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        fetch-tags: true
 
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.22'
 
-    - name: Build
-      run: |
-        GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -v
+    - name: Run GoReleaser
+      id: releaser
+      uses: goreleaser/goreleaser-action@v5
+      with:
+        version: latest
+        args: release ${{ env.flags }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload
-      if: ${{ github.event_name != 'pull_request' }}
+      if: ${{ github.event_name == 'pull_request' }}
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.goos }}-${{ matrix.goarch }}-azcosts
-        path: ./azcosts*
+        path: ./dist/*
         if-no-files-found: warn

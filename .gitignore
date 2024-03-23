@@ -126,3 +126,5 @@ fabric.properties
 
 # CSV files
 *.csv
+
+dist/

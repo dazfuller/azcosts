@@ -3,7 +3,6 @@ package azure
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/dazfuller/azcosts/internal/model"
 	"net/http"
 	"time"
@@ -31,15 +30,8 @@ type ResourceGroupService struct {
 }
 
 func NewResourceGroupService() ResourceGroupService {
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
-	if err != nil {
-		panic(err)
-	}
-
 	return ResourceGroupService{
-		azureService: azureService{
-			identity: cred,
-		},
+		azureService:    newAzureService(),
 		apiVersion:      "2021-04-01",
 		endpoint:        "https://management.azure.com",
 		managementScope: "https://management.azure.com/.default",
