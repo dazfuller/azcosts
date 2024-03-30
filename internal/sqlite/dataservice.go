@@ -297,6 +297,26 @@ func (cm *CostManagementStore) DeleteSubscriptionBillingPeriod(subscriptionId st
 	return nil
 }
 
+func (cm *CostManagementStore) ListCollectedSubscriptions() ([]model.Subscription, error) {
+	rows, err := cm.db.Query("SELECT DISTINCT subscription_id, subscription_name FROM costs ORDER BY subscription_name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subscriptions []model.Subscription
+	for rows.Next() {
+		var subscription model.Subscription
+		err := rows.Scan(&subscription.Id, &subscription.Name)
+		if err != nil {
+			return nil, err
+		}
+		subscriptions = append(subscriptions, subscription)
+	}
+
+	return subscriptions, nil
+}
+
 func costToFloat(value interface{}) float64 {
 	switch value.(type) {
 	case int8:
