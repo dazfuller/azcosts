@@ -218,11 +218,15 @@ func displaySubscriptions() error {
 			name = name[:50]
 		}
 
-		collected := slices.ContainsFunc(collectedSubs, func(s model.Subscription) bool {
-			return s.Id == sub.Id
-		})
+		collected := "No"
 
-		fmt.Printf("%-50s %-36s %-10t\n", name, sub.Id, collected)
+		if slices.ContainsFunc(collectedSubs, func(s model.Subscription) bool {
+			return s.Id == sub.Id
+		}) {
+			collected = "Yes"
+		}
+
+		fmt.Printf("%-50s %-36s %-10s\n", name, sub.Id, collected)
 	}
 
 	return nil
