@@ -49,6 +49,7 @@ func Execute() {
 	subscriptionCmd := flag.NewFlagSet("subscription", flag.ExitOnError)
 	collectCmd := flag.NewFlagSet("collect", flag.ExitOnError)
 	generateCmd := flag.NewFlagSet("generate", flag.ExitOnError)
+	statusCmd := flag.NewFlagSet("status", flag.ExitOnError)
 
 	subscriptionCmd.StringVar(&subscriptionName, "name", "", "Full or partial name to filter by, if not provided then a full list is returned")
 
@@ -91,6 +92,14 @@ func Execute() {
 		generateCmd.PrintDefaults()
 	}
 
+	statusCmd.Usage = func() {
+		fmt.Println("Azure costs summary")
+		fmt.Println("Outputs information showing the collection status of subscriptions collected to date")
+		fmt.Println()
+		fmt.Println("Usage:")
+		subscriptionCmd.PrintDefaults()
+	}
+
 	if len(os.Args) < 2 || strings.Contains(strings.ToLower(os.Args[1]), "help") {
 		displayTopLevelUsage()
 		os.Exit(1)
@@ -122,8 +131,11 @@ func Execute() {
 		validateGenerateFlags(generateCmd)
 		err = generateBillingSummary()
 		break
+	case "status":
+		err = displayCollectionStatus()
+		break
 	default:
-		fmt.Println("Unexpected command, expected 'subscription', 'collect' or 'generate'")
+		fmt.Println("Unexpected command, expected 'subscription', 'collect', 'generate', or 'status'")
 		fmt.Println()
 		displayTopLevelUsage()
 		os.Exit(1)
@@ -339,12 +351,44 @@ func generateBillingSummary() error {
 	return err
 }
 
+func displayCollectionStatus() error {
+	db, err := getCostManagementStore()
+	if err != nil {
+		return err
+	}
+	defer func(db *sqlite.CostManagementStore) {
+		err := db.Close()
+		if err != nil {
+			log.Printf("Unable to close data store: %e", err)
+		}
+	}(db)
+
+	summaries, err := db.GetCollectionSummary()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%-51s%-38s%-9s\n", "Subscription", "Subscription Id", "Period")
+	fmt.Printf("%-51s%-38s%-9s\n", strings.Repeat("=", 50), strings.Repeat("=", 37), strings.Repeat("=", 8))
+
+	for _, summary := range summaries {
+		name := summary.SubscriptionName
+		if len(name) > 50 {
+			name = name[:50]
+		}
+
+		fmt.Printf("%-50s %-37s %-9s\n", name, summary.SubscriptionId, summary.BillingPeriod.Format("2006-01"))
+	}
+
+	return nil
+}
+
 func displayTopLevelUsage() {
 	fmt.Println(`Azure costs summary
 A tool for collecting billing data from Azure, and producing summarized outputs
 
 Author:
-    Darren Fuller    https://dazfuller.uk
+    Darren Fuller    https://github.com/dazfuller
 
 Usage:
     azcosts [command]
@@ -353,6 +397,7 @@ Available Commands:
     subscription     Displays subscriptions available to the current user
     collect          Collects data from Azure and persists into a local store
     generate         Produces a summarized output of the billing data in multiple formats
+    status           Displays the billing periods collected for each subscription
 
 Flags:
     -h, -help        Help for azcosts`)
