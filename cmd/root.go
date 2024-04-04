@@ -222,8 +222,8 @@ func displaySubscriptions() error {
 		return subscriptions[a].Name < subscriptions[b].Name
 	})
 
-	fmt.Printf("%-51s%-37s%-11s\n", "Subscription", "Subscription Id", "Collected")
-	fmt.Printf("%-51s%-37s%-11s\n", strings.Repeat("=", 50), strings.Repeat("=", 36), strings.Repeat("=", 10))
+	fmt.Printf("%-51s%-38s%-11s\n", "Subscription", "Subscription Id", "Collected")
+	fmt.Printf("%-51s%-38s%-11s\n", strings.Repeat("=", 50), strings.Repeat("=", 37), strings.Repeat("=", 10))
 	for _, sub := range subscriptions {
 		name := sub.Name
 		if len(name) > 50 {
@@ -238,7 +238,7 @@ func displaySubscriptions() error {
 			collected = "Yes"
 		}
 
-		fmt.Printf("%-50s %-36s %-10s\n", name, sub.Id, collected)
+		fmt.Printf("%-50s %-37s %-10s\n", name, sub.Id, collected)
 	}
 
 	return nil
