@@ -289,12 +289,64 @@ func (cm *CostManagementStore) GetSubscriptionBillingPeriods(subscriptionId stri
 	return billingPeriods, nil
 }
 
+func (cm *CostManagementStore) GetCollectionSummary() ([]model.CollectionSummary, error) {
+	rows, err := cm.db.Query(`
+		SELECT
+			subscription_name
+			, subscription_id
+			, billing_from
+		FROM
+			costs
+		GROUP BY
+			subscription_name
+			, subscription_id
+			, billing_from
+		ORDER BY
+			subscription_name
+			, billing_from DESC`)
+	if err != nil {
+		return nil, err
+	}
+
+	var collectionSummaries []model.CollectionSummary
+	for rows.Next() {
+		var summary model.CollectionSummary
+		err := rows.Scan(&summary.SubscriptionName, &summary.SubscriptionId, &summary.BillingPeriod)
+		if err != nil {
+			return nil, err
+		}
+		collectionSummaries = append(collectionSummaries, summary)
+	}
+
+	return collectionSummaries, nil
+}
+
 func (cm *CostManagementStore) DeleteSubscriptionBillingPeriod(subscriptionId string, billingPeriod string) error {
 	_, err := cm.db.Exec("DELETE FROM costs WHERE subscription_id = ? AND billing_period = ?", subscriptionId, billingPeriod)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (cm *CostManagementStore) ListCollectedSubscriptions() ([]model.Subscription, error) {
+	rows, err := cm.db.Query("SELECT DISTINCT subscription_id, subscription_name FROM costs ORDER BY subscription_name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subscriptions []model.Subscription
+	for rows.Next() {
+		var subscription model.Subscription
+		err := rows.Scan(&subscription.Id, &subscription.Name)
+		if err != nil {
+			return nil, err
+		}
+		subscriptions = append(subscriptions, subscription)
+	}
+
+	return subscriptions, nil
 }
 
 func costToFloat(value interface{}) float64 {
