@@ -53,7 +53,6 @@ func initializeDatabase(db *sql.DB) error {
         , billing_from DATETIME
         , billing_period TEXT
         , resource_group TEXT
-        , resource_group_status TEXT
         , subscription_name TEXT
         , subscription_id TEXT
         , cost READ
