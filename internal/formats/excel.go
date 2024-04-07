@@ -55,6 +55,11 @@ func (ef ExcelFormatter) Generate(costs []model.ResourceGroupSummary) error {
 		return err
 	}
 
+	err = ef.addSparkLines(f, sheetName)
+	if err != nil {
+		return err
+	}
+
 	err2 := ef.addTable(f, sheetName, costs, lastCol)
 	if err2 != nil {
 		return err2
@@ -81,6 +86,7 @@ func (ef ExcelFormatter) addHeaders(f *excelize.File, sheetName string, costEntr
 	}
 
 	headers = append(headers, "Total Cost")
+	headers = append(headers, "Change")
 
 	err := f.SetSheetRow(sheetName, firstCell, &headers)
 	if err != nil {
@@ -147,7 +153,45 @@ func (ef ExcelFormatter) setSheetFormats(f *excelize.File, sheetName string, col
 		}
 	}
 
+	lastCol, _ := excelize.ColumnNumberToName(len(cols))
+	_ = f.SetColWidth(sheetName, lastCol, lastCol, (float64)(len(cols)-5)*3)
+
+	rows, _ := f.GetRows(sheetName)
+	for ri := range rows {
+		_ = f.SetRowHeight(sheetName, ri, 24)
+	}
+
 	return nil
+}
+
+func (ef ExcelFormatter) addSparkLines(f *excelize.File, sheetName string) error {
+	rows, _ := f.GetRows(sheetName)
+	cols, _ := f.GetCols(sheetName)
+	lastColumn, _ := excelize.ColumnNumberToName(len(cols))
+	lastDataColumn, _ := excelize.ColumnNumberToName(len(cols) - 2)
+
+	var sparkLineLocation []string
+	var sparkLineRange []string
+	for i := range rows {
+		if i <= 1 {
+			continue
+		}
+
+		location, _ := excelize.JoinCellName(lastColumn, i)
+		start, _ := excelize.JoinCellName("D", i)
+		end, _ := excelize.JoinCellName(lastDataColumn, i)
+
+		sparkLineLocation = append(sparkLineLocation, location)
+		sparkLineRange = append(sparkLineRange, fmt.Sprintf("%s!%s:%s", sheetName, start, end))
+	}
+
+	return f.AddSparkline(sheetName, &excelize.SparklineOptions{
+		Location: sparkLineLocation,
+		Range:    sparkLineRange,
+		Markers:  true,
+		Type:     "line",
+		Style:    18,
+	})
 }
 
 func (ef ExcelFormatter) addTable(f *excelize.File, sheetName string, costs []model.ResourceGroupSummary, lastCol string) error {
