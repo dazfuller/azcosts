@@ -12,3 +12,9 @@ type ResourceGroupSummary struct {
 	Costs            []BillingPeriodCost `json:"costs"`
 	TotalCost        float64             `json:"totalCost"`
 }
+
+type SubscriptionSummary struct {
+	Name      string              `json:"name"`
+	Costs     []BillingPeriodCost `json:"costs"`
+	TotalCost float64             `json:"totalCost"`
+}

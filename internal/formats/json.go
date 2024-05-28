@@ -11,6 +11,7 @@ type report struct {
 	Generated          time.Time                    `json:"generated"`
 	ResourceGroupCount int                          `json:"resourceGroupCount"`
 	TotalCost          float64                      `json:"totalCost"`
+	Subscriptions      []model.SubscriptionSummary  `json:"subscriptions"`
 	ResourceGroups     []model.ResourceGroupSummary `json:"resourceGroups"`
 }
 
@@ -33,10 +34,13 @@ func (jf JsonFormatter) Generate(costs []model.ResourceGroupSummary) error {
 		totalCost += costs[i].TotalCost
 	}
 
+	subscriptionSummary := generateSubscriptionSummary(costs)
+
 	report := report{
 		Generated:          time.Now().UTC(),
 		ResourceGroupCount: len(costs),
 		TotalCost:          totalCost,
+		Subscriptions:      subscriptionSummary,
 		ResourceGroups:     costs,
 	}
 
