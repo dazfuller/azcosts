@@ -62,7 +62,7 @@ func (ef ExcelFormatter) createSubscriptionSummarySheet(subscriptions []model.Su
 		"Subscription",
 	}
 
-	err = ef.addHeaders(f, sheetName, subscriptions[0].Costs, headers, false)
+	err = ef.addHeaders(f, sheetName, subscriptions[0].Costs, headers, true)
 	if err != nil {
 		return err
 	}
@@ -80,11 +80,10 @@ func (ef ExcelFormatter) createSubscriptionSummarySheet(subscriptions []model.Su
 		return err
 	}
 
-	// TODO: Seems to be a bug in Excelize where spark lines are repeated on multiple sheets
-	//err = ef.addSparkLines(f, sheetName, 1)
-	//if err != nil {
-	//	return err
-	//}
+	err = ef.addSparkLines(f, sheetName, 1)
+	if err != nil {
+		return err
+	}
 
 	err2 := ef.addTable(f, sheetName, "SubscriptionSummary", len(subscriptions), lastCol)
 	if err2 != nil {
