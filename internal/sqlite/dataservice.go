@@ -9,6 +9,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 )
 
 const dbVersion = 1
@@ -200,8 +201,8 @@ func (cm *CostManagementStore) createSummaryView(billingPeriods []string) error 
 	return err
 }
 
-func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.ResourceGroupSummary, error) {
-	billingPeriods, err := cm.GetAllBillingPeriods()
+func (cm *CostManagementStore) GenerateSummaryByResourceGroup(months int) ([]model.ResourceGroupSummary, error) {
+	billingPeriods, err := cm.GetAllBillingPeriods(months)
 	if err != nil {
 		return nil, err
 	}
@@ -249,8 +250,10 @@ func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.Resourc
 	return summary, nil
 }
 
-func (cm *CostManagementStore) GetAllBillingPeriods() ([]string, error) {
-	rows, err := cm.db.Query("SELECT DISTINCT billing_period FROM costs ORDER BY billing_period")
+func (cm *CostManagementStore) GetAllBillingPeriods(months int) ([]string, error) {
+	fromDate := time.Now().UTC().AddDate(0, months*-1, 0)
+	fromDate = fromDate.AddDate(0, 0, -fromDate.Day()+1).Add(time.Minute)
+	rows, err := cm.db.Query("SELECT DISTINCT billing_period FROM costs WHERE billing_from > ? ORDER BY billing_period", fromDate)
 	if err != nil {
 		return nil, err
 	}
