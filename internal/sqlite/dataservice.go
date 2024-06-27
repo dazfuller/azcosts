@@ -178,7 +178,6 @@ func (cm *CostManagementStore) SaveCosts(costs []model.ResourceGroupCost, curren
 }
 
 func (cm *CostManagementStore) createSummaryView(billingPeriods []string) error {
-
 	queryBuilder := strings.Builder{}
 	queryBuilder.WriteString("DROP VIEW IF EXISTS vw_cost_summary;")
 	queryBuilder.WriteString("CREATE VIEW vw_cost_summary AS\n")
@@ -194,6 +193,16 @@ func (cm *CostManagementStore) createSummaryView(billingPeriods []string) error 
 	queryBuilder.WriteString("    SELECT resource_group, subscription_id, subscription_name, resource_group_status, cost, billing_period\n")
 	queryBuilder.WriteString("           , LAST_VALUE(resource_group_status) OVER (PARTITION BY subscription_id, resource_group ORDER BY billing_from RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS `current_status`\n")
 	queryBuilder.WriteString("    FROM costs\n")
+	queryBuilder.WriteString("    WHERE billing_period IN (")
+
+	for i, bp := range billingPeriods {
+		if i > 0 {
+			queryBuilder.WriteString(", ")
+		}
+		queryBuilder.WriteString(fmt.Sprintf("'%s'", bp))
+	}
+
+	queryBuilder.WriteString(")\n")
 	queryBuilder.WriteString(")\n")
 	queryBuilder.WriteString("GROUP BY resource_group, subscription_name;\n")
 
