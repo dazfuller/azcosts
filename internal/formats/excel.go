@@ -236,7 +236,11 @@ func (ef ExcelFormatter) setSheetFormats(f *excelize.File, sheetName string, col
 	}
 
 	lastCol, _ := excelize.ColumnNumberToName(len(cols))
-	_ = f.SetColWidth(sheetName, lastCol, lastCol, (float64)(len(cols)-5)*3)
+	lastColWidth := (float64)(len(cols)-5) * 3
+	if lastColWidth < 8 {
+		lastColWidth = 8
+	}
+	_ = f.SetColWidth(sheetName, lastCol, lastCol, lastColWidth)
 
 	rows, _ := f.GetRows(sheetName)
 	for ri := range rows {
