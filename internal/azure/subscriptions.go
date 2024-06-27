@@ -6,7 +6,6 @@ import (
 	"github.com/dazfuller/azcosts/internal/model"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -55,12 +54,8 @@ func (ss *SubscriptionService) FindSubscription(input string) ([]model.Subscript
 
 	var filtered []model.Subscription
 	for i := range subs {
-		subNameParts := strings.Split(subs[i].Name, " ")
-		for _, part := range subNameParts {
-			if fuzzy.MatchFold(input, part) {
-				filtered = append(filtered, subs[i])
-				break
-			}
+		if fuzzy.MatchFold(input, subs[i].Name) {
+			filtered = append(filtered, subs[i])
 		}
 	}
 
