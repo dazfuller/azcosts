@@ -128,3 +128,5 @@ fabric.properties
 *.csv
 
 dist/
+.DS_Store
+

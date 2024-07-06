@@ -9,6 +9,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 )
 
 const dbVersion = 1
@@ -177,7 +178,6 @@ func (cm *CostManagementStore) SaveCosts(costs []model.ResourceGroupCost, curren
 }
 
 func (cm *CostManagementStore) createSummaryView(billingPeriods []string) error {
-
 	queryBuilder := strings.Builder{}
 	queryBuilder.WriteString("DROP VIEW IF EXISTS vw_cost_summary;")
 	queryBuilder.WriteString("CREATE VIEW vw_cost_summary AS\n")
@@ -193,6 +193,16 @@ func (cm *CostManagementStore) createSummaryView(billingPeriods []string) error 
 	queryBuilder.WriteString("    SELECT resource_group, subscription_id, subscription_name, resource_group_status, cost, billing_period\n")
 	queryBuilder.WriteString("           , LAST_VALUE(resource_group_status) OVER (PARTITION BY subscription_id, resource_group ORDER BY billing_from RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS `current_status`\n")
 	queryBuilder.WriteString("    FROM costs\n")
+	queryBuilder.WriteString("    WHERE billing_period IN (")
+
+	for i, bp := range billingPeriods {
+		if i > 0 {
+			queryBuilder.WriteString(", ")
+		}
+		queryBuilder.WriteString(fmt.Sprintf("'%s'", bp))
+	}
+
+	queryBuilder.WriteString(")\n")
 	queryBuilder.WriteString(")\n")
 	queryBuilder.WriteString("GROUP BY resource_group, subscription_name;\n")
 
@@ -200,8 +210,8 @@ func (cm *CostManagementStore) createSummaryView(billingPeriods []string) error 
 	return err
 }
 
-func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.ResourceGroupSummary, error) {
-	billingPeriods, err := cm.GetAllBillingPeriods()
+func (cm *CostManagementStore) GenerateSummaryByResourceGroup(months int) ([]model.ResourceGroupSummary, error) {
+	billingPeriods, err := cm.GetAllBillingPeriods(months)
 	if err != nil {
 		return nil, err
 	}
@@ -249,8 +259,10 @@ func (cm *CostManagementStore) GenerateSummaryByResourceGroup() ([]model.Resourc
 	return summary, nil
 }
 
-func (cm *CostManagementStore) GetAllBillingPeriods() ([]string, error) {
-	rows, err := cm.db.Query("SELECT DISTINCT billing_period FROM costs ORDER BY billing_period")
+func (cm *CostManagementStore) GetAllBillingPeriods(months int) ([]string, error) {
+	fromDate := time.Now().UTC().AddDate(0, months*-1, 0)
+	fromDate = fromDate.AddDate(0, 0, -fromDate.Day()+1).Add(time.Minute)
+	rows, err := cm.db.Query("SELECT DISTINCT billing_period FROM costs WHERE billing_from > ? ORDER BY billing_period", fromDate)
 	if err != nil {
 		return nil, err
 	}

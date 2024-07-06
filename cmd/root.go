@@ -37,6 +37,7 @@ var (
 	outputPath       string
 	truncateDB       bool
 	overwrite        bool
+	generateMonths   int
 )
 
 func Execute() {
@@ -83,6 +84,7 @@ func Execute() {
 		"The output format to use. Allowed values are '%s', '%s', '%s', and '%s'", TextFormat, CsvFormat, JsonFormat, ExcelFormat))
 	generateCmd.BoolVar(&useStdOut, "stdout", false, "If set writes the data to stdout")
 	generateCmd.StringVar(&outputPath, "path", "", "The output path to write the summary data to when not writing to stdout")
+	generateCmd.IntVar(&generateMonths, "months", 6, "The number of months over which to report")
 
 	generateCmd.Usage = func() {
 		fmt.Println("Azure costs summary")
@@ -185,6 +187,10 @@ func validateGenerateFlags(flags *flag.FlagSet) {
 		displayErrorMessage("when not writing to stdout an output path must be specified", flags)
 	} else if formatLower == ExcelFormat && len(outputPath) == 0 {
 		displayErrorMessage("excel output cannot be written to stdout and so an output path must be specified", flags)
+	}
+
+	if generateMonths <= 0 {
+		displayErrorMessage("number of months must be greater than 0", flags)
 	}
 }
 
@@ -322,7 +328,7 @@ func generateBillingSummary() error {
 		}
 	}(db)
 
-	summary, err := db.GenerateSummaryByResourceGroup()
+	summary, err := db.GenerateSummaryByResourceGroup(generateMonths)
 	if err != nil {
 		return err
 	}

@@ -45,6 +45,7 @@ When generating the following arguments are available.
 | format   | No       | The type of format to use for the generated output                            |
 | stdout   | No       | If specified then the report is written to stdout (not available for Excel)   |
 | path     | No       | When not writing to stdout a path must be specified to generate the report at |
+| months   | No       | The number of months to export in the generated report                        |
 
 Example usage
 

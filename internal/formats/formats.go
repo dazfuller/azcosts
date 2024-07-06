@@ -28,3 +28,43 @@ func validateOptions(useStdOut bool, outputPath string) error {
 
 	return nil
 }
+
+func generateSubscriptionSummary(costs []model.ResourceGroupSummary) []model.SubscriptionSummary {
+	subscriptions := make(map[string]*model.SubscriptionSummary)
+
+	for _, cost := range costs {
+		name := cost.SubscriptionName
+		if _, ok := subscriptions[name]; !ok {
+			subCosts := make([]model.BillingPeriodCost, len(cost.Costs))
+
+			for i, cost := range cost.Costs {
+				subCosts[i] = model.BillingPeriodCost{
+					Period: cost.Period,
+					Total:  0,
+				}
+			}
+
+			subscription := &model.SubscriptionSummary{
+				Name:      name,
+				Costs:     subCosts,
+				TotalCost: 0,
+			}
+
+			subscriptions[name] = subscription
+		}
+
+		subscription := subscriptions[name]
+
+		for i, bp := range cost.Costs {
+			subscription.Costs[i].Total += bp.Total
+			subscription.TotalCost += bp.Total
+		}
+	}
+
+	subscriptionSummary := make([]model.SubscriptionSummary, 0, len(subscriptions))
+	for _, sub := range subscriptions {
+		subscriptionSummary = append(subscriptionSummary, *sub)
+	}
+
+	return subscriptionSummary
+}
