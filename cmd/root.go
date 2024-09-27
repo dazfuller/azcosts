@@ -36,7 +36,6 @@ var (
 	useStdOut        bool
 	outputPath       string
 	truncateDB       bool
-	overwrite        bool
 	generateMonths   int
 )
 
@@ -67,7 +66,6 @@ func Execute() {
 	collectCmd.IntVar(&year, "year", time.Now().Year(), "The year of the billing period")
 	collectCmd.IntVar(&month, "month", int(time.Now().Month()), "The month of the billing period")
 	collectCmd.BoolVar(&truncateDB, "truncate", false, "If specified will truncate the existing data in the database")
-	collectCmd.BoolVar(&overwrite, "overwrite", false, "If specified then any existing data for a billing period will be overwritten with new data")
 
 	collectCmd.Usage = func() {
 		fmt.Println("Azure costs summary")
@@ -102,9 +100,9 @@ func Execute() {
 		subscriptionCmd.PrintDefaults()
 	}
 
-	if len(os.Args) < 2 || strings.Contains(strings.ToLower(os.Args[1]), "help") {
+	if len(os.Args) < 2 || slices.Contains([]string{"-h", "-help"}, strings.ToLower(os.Args[1])) {
 		displayTopLevelUsage()
-		os.Exit(1)
+		os.Exit(0)
 	}
 
 	var err error
@@ -420,17 +418,8 @@ func displayErrorMessage(msg string, flags *flag.FlagSet) {
 func processSubscriptionBillingPeriods(db *sqlite.CostManagementStore, billingDate time.Time) error {
 	svc := azure.NewCostService()
 	rgSvc := azure.NewResourceGroupService()
-	existingPeriods, err := db.GetSubscriptionBillingPeriods(subscriptionId)
-	if err != nil {
-		return err
-	}
 
 	period := billingDate.Format("2006-01")
-
-	if !overwrite && slices.Contains(existingPeriods, period) {
-		log.Println("Data for the selected billing period already exists, use the overwrite option to replace this data")
-		return nil
-	}
 
 	rgs, err := rgSvc.ListResourceGroups(subscriptionId)
 	if err != nil {
