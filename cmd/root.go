@@ -95,9 +95,6 @@ func Execute() {
 	statusCmd.Usage = func() {
 		fmt.Println("Azure costs summary")
 		fmt.Println("Outputs information showing the collection status of subscriptions collected to date")
-		fmt.Println()
-		fmt.Println("Usage:")
-		subscriptionCmd.PrintDefaults()
 	}
 
 	if len(os.Args) < 2 || slices.Contains([]string{"-h", "-help"}, strings.ToLower(os.Args[1])) {
@@ -132,6 +129,10 @@ func Execute() {
 		err = generateBillingSummary()
 		break
 	case "status":
+		err = statusCmd.Parse(os.Args[2:])
+		if err != nil {
+			displayErrorMessage("", statusCmd)
+		}
 		err = displayCollectionStatus()
 		break
 	default:
