@@ -3,8 +3,29 @@ package formats
 import (
 	"github.com/dazfuller/azcosts/internal/model"
 	"slices"
+	"strings"
 	"testing"
 )
+
+func TestValidateOptions(t *testing.T) {
+	err := validateOptions(true, "")
+
+	if err != nil {
+		t.Errorf("expected nil error but got %v", err)
+	}
+}
+
+func TestValidateOptionsForEmptyPath(t *testing.T) {
+	err := validateOptions(false, "")
+
+	if err == nil {
+		t.Fatal("expected an error but got none")
+	}
+
+	if !strings.Contains(err.Error(), "file path must be specified") {
+		t.Fatalf("expected an error stating the file path must be specified but received: %s", err.Error())
+	}
+}
 
 func TestGenerateSubscriptionSummary(t *testing.T) {
 	testData := []model.ResourceGroupSummary{
