@@ -13,7 +13,7 @@ type TextFormatter struct {
 	outputPath string
 }
 
-func MakeTextFormatter(useStdOut bool, outputPath string) (TextFormatter, error) {
+func NewTextFormatter(useStdOut bool, outputPath string) (TextFormatter, error) {
 	if err := validateOptions(useStdOut, outputPath); err != nil {
 		return TextFormatter{}, err
 	}

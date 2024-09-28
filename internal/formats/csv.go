@@ -13,7 +13,7 @@ type CsvFormatter struct {
 	outputPath string
 }
 
-func MakeCsvFormatter(useStdOut bool, outputPath string) (CsvFormatter, error) {
+func NewCsvFormatter(useStdOut bool, outputPath string) (CsvFormatter, error) {
 	if err := validateOptions(useStdOut, outputPath); err != nil {
 		return CsvFormatter{}, err
 	}

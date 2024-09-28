@@ -336,16 +336,16 @@ func generateBillingSummary() error {
 
 	switch strings.ToLower(format) {
 	case TextFormat:
-		formatter, err = formats.MakeTextFormatter(useStdOut, outputPath)
+		formatter, err = formats.NewTextFormatter(useStdOut, outputPath)
 		break
 	case CsvFormat:
-		formatter, err = formats.MakeCsvFormatter(useStdOut, outputPath)
+		formatter, err = formats.NewCsvFormatter(useStdOut, outputPath)
 		break
 	case JsonFormat:
-		formatter, err = formats.MakeJsonFormatter(useStdOut, outputPath)
+		formatter, err = formats.NewJsonFormatter(useStdOut, outputPath)
 		break
 	case ExcelFormat:
-		formatter, err = formats.MakeExcelFormatter(outputPath)
+		formatter, err = formats.NewExcelFormatter(outputPath)
 		break
 	}
 	if err != nil {

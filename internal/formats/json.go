@@ -20,7 +20,7 @@ type JsonFormatter struct {
 	outputPath string
 }
 
-func MakeJsonFormatter(useStdOut bool, outputPath string) (JsonFormatter, error) {
+func NewJsonFormatter(useStdOut bool, outputPath string) (JsonFormatter, error) {
 	if err := validateOptions(useStdOut, outputPath); err != nil {
 		return JsonFormatter{}, err
 	}

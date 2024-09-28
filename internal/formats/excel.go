@@ -13,7 +13,7 @@ type ExcelFormatter struct {
 	outputPath string
 }
 
-func MakeExcelFormatter(outputPath string) (ExcelFormatter, error) {
+func NewExcelFormatter(outputPath string) (ExcelFormatter, error) {
 	if err := validateOptions(false, outputPath); err != nil {
 		return ExcelFormatter{}, err
 	}
