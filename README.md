@@ -1,3 +1,9 @@
+# Archived
+
+Please note:
+
+This repository has been migrated to [Codeberg](https://codeberg.org/dazfuller/azcosts) and so has been archived at this location
+
 # Azure Costs CLI
 
 This is a small CLI app I wrote as I wanted to get back into writing code with Go. This tool allows users to collect costs for a monthly billing period broken down by resource group and persisted locally. The app can then be used to generate a report showing the month-by-month spend per resource group in either text, csv, json, or Excel formats.
